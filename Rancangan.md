@@ -213,8 +213,9 @@ CREATE TABLE pembayaran (
 | tanggal_bayar | DATETIME | |
 
 ---
+### CDM
 <img width="813" height="546" alt="image" src="https://github.com/user-attachments/assets/8bf9a2a7-ed25-4a21-9996-1fcdb7e05098" />
-
+### PDM
 <img width="792" height="546" alt="image" src="https://github.com/user-attachments/assets/cc636667-d172-49ac-a091-419b4673a5ed" />
 
 
@@ -228,6 +229,144 @@ CREATE TABLE pembayaran (
 | T3 | Validasi kursi belum terisi | `detail_pemesanan` (BEFORE INSERT) | Cek `kursi_jadwal.status_kursi`, tolak (RAISE ERROR) jika sudah 'booked' |
 | T4 | Hitung total harga otomatis | `detail_pemesanan` (AFTER INSERT) | UPDATE `pemesanan.total_harga` = SUM(harga) dari seluruh detail terkait |
 
+```
+CREATE OR REPLACE FUNCTION fn_validasi_kursi_tersedia()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_status kursi_jadwal.status_kursi%TYPE;
+BEGIN
+    -- FOR UPDATE mengunci baris agar tidak terjadi race condition
+    -- ketika dua transaksi memesan kursi yang sama secara bersamaan
+    SELECT status_kursi INTO v_status
+    FROM kursi_jadwal
+    WHERE id_kursi_jadwal = NEW.id_kursi_jadwal
+    FOR UPDATE;
+
+    IF v_status IS NULL THEN
+        RAISE EXCEPTION 'Kursi-jadwal dengan id % tidak ditemukan', NEW.id_kursi_jadwal;
+    END IF;
+
+    IF v_status <> 'available' THEN
+        RAISE EXCEPTION
+            'Kursi tidak tersedia (status saat ini: %). Tidak dapat memesan kursi yang sama.',
+            v_status;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_t3_validasi_kursi
+BEFORE INSERT ON detail_pemesanan
+FOR EACH ROW
+EXECUTE FUNCTION fn_validasi_kursi_tersedia();
+
+
+-- ============================================================
+-- T1 — Update status kursi menjadi 'booked'
+-- AFTER INSERT pada detail_pemesanan
+-- ============================================================
+CREATE OR REPLACE FUNCTION fn_update_status_kursi_booked()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE kursi_jadwal
+    SET status_kursi = 'booked'
+    WHERE id_kursi_jadwal = NEW.id_kursi_jadwal;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_t1_update_status_kursi
+AFTER INSERT ON detail_pemesanan
+FOR EACH ROW
+EXECUTE FUNCTION fn_update_status_kursi_booked();
+
+
+-- ============================================================
+-- T4 — Hitung ulang total_harga pada pemesanan secara otomatis
+-- AFTER INSERT pada detail_pemesanan
+-- ============================================================
+CREATE OR REPLACE FUNCTION fn_hitung_total_harga()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE pemesanan
+    SET total_harga = (
+        SELECT COALESCE(SUM(harga), 0)
+        FROM detail_pemesanan
+        WHERE id_pemesanan = NEW.id_pemesanan
+    )
+    WHERE id_pemesanan = NEW.id_pemesanan;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_t4_hitung_total_harga
+AFTER INSERT ON detail_pemesanan
+FOR EACH ROW
+EXECUTE FUNCTION fn_hitung_total_harga();
+
+
+-- ============================================================
+-- T2a — Kembalikan status kursi menjadi 'available'
+-- AFTER UPDATE OF status_pemesanan ON pemesanan
+-- Aktif ketika status_pemesanan berubah MENJADI 'cancelled'
+-- ============================================================
+CREATE OR REPLACE FUNCTION fn_kembalikan_status_kursi_dari_pemesanan()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.status_pemesanan = 'cancelled' AND OLD.status_pemesanan IS DISTINCT FROM 'cancelled' THEN
+        UPDATE kursi_jadwal kj
+        SET status_kursi = 'available'
+        FROM detail_pemesanan dp
+        WHERE dp.id_pemesanan = NEW.id_pemesanan
+          AND kj.id_kursi_jadwal = dp.id_kursi_jadwal;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_t2a_kembalikan_status_kursi
+AFTER UPDATE OF status_pemesanan ON pemesanan
+FOR EACH ROW
+EXECUTE FUNCTION fn_kembalikan_status_kursi_dari_pemesanan();
+
+
+-- ============================================================
+-- T2b — Kembalikan status kursi menjadi 'available'
+-- AFTER UPDATE OF status_pembayaran ON pembayaran
+-- Aktif ketika status_pembayaran berubah MENJADI 'failed'
+-- Turut membatalkan pemesanan terkait, yang secara otomatis
+-- akan ikut memicu logika T2a melalui cascading update
+-- ============================================================
+CREATE OR REPLACE FUNCTION fn_kembalikan_status_kursi_dari_pembayaran()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.status_pembayaran = 'failed' AND OLD.status_pembayaran IS DISTINCT FROM 'failed' THEN
+        UPDATE kursi_jadwal kj
+        SET status_kursi = 'available'
+        FROM detail_pemesanan dp
+        WHERE dp.id_pemesanan = NEW.id_pemesanan
+          AND kj.id_kursi_jadwal = dp.id_kursi_jadwal;
+
+        UPDATE pemesanan
+        SET status_pemesanan = 'cancelled'
+        WHERE id_pemesanan = NEW.id_pemesanan
+          AND status_pemesanan <> 'cancelled';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_t2b_kembalikan_status_kursi
+AFTER UPDATE OF status_pembayaran ON pembayaran
+FOR EACH ROW
+EXECUTE FUNCTION fn_kembalikan_status_kursi_dari_pembayaran();
+```
+
 ### 3.2 Indexing (I1, I2, I3, I6)
 | Kode | Tabel | Kolom | Jenis |
 |---|---|---|---|
@@ -235,6 +374,23 @@ CREATE TABLE pembayaran (
 | I2 | jadwal_tayang | tanggal_tayang | Single-column |
 | I3 | kursi_jadwal | (id_jadwal, id_kursi) | Composite |
 | I6 | jadwal_tayang | (id_studio, tanggal_tayang) | Composite |
+
+```
+-- I1 — Single-column index untuk pencarian film berdasarkan judul
+CREATE INDEX idx_film_judul ON film (judul_film);
+
+-- I2 — Single-column index untuk filter jadwal berdasarkan tanggal tayang
+CREATE INDEX idx_jadwal_tanggal ON jadwal_tayang (tanggal_tayang);
+
+-- I3 — Composite index untuk pengecekan ketersediaan kursi per jadwal
+-- Dibuat sebagai UNIQUE INDEX agar sekaligus mengembalikan aturan bisnis
+-- "satu slot kursi-jadwal hanya boleh muncul satu kali" yang sebelumnya
+-- diberlakukan melalui constraint uq_kursijadwal_jadwal_kursi
+CREATE UNIQUE INDEX idx_kursijadwal_jadwal_kursi ON kursi_jadwal (id_jadwal, id_kursi);
+
+-- I6 — Composite index untuk filter jadwal berdasarkan studio dan tanggal
+CREATE INDEX idx_jadwal_studio_tanggal ON jadwal_tayang (id_studio, tanggal_tayang);
+```
 
 ### 3.3 Role & Privilege (R1, R2, R3)
 | Kode | Role | Hak Akses (rencana awal) |
@@ -244,6 +400,56 @@ CREATE TABLE pembayaran (
 | R3 | Customer Service | SELECT (read-only) pada `pemesanan`, `detail_pemesanan`, `pelanggan`, `pembayaran` |
 
 > Catatan: R1–R3 diimplementasikan sebagai MySQL user/role (`CREATE USER`, `GRANT`) pada tahap Administrasi Database, bukan sebagai tabel aplikasi. Tidak menambah entitas baru pada CDM/PDM.
+
+```
+-- ============================================================
+-- R1 — ADMIN
+-- Hak akses penuh terhadap seluruh tabel
+-- ============================================================
+CREATE ROLE admin_bioskop WITH LOGIN PASSWORD 'Admin#2026';
+
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO admin_bioskop;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO admin_bioskop;
+
+
+-- ============================================================
+-- R2 — KASIR
+-- - SELECT, INSERT, UPDATE pada: pemesanan, detail_pemesanan,
+--   pembayaran, kursi_jadwal (operasional transaksi penjualan)
+-- - SELECT, INSERT pada: pelanggan (registrasi pelanggan baru
+--   di loket — penyesuaian dari rancangan awal yang sebelumnya
+--   belum mencantumkan akses ini)
+-- - SELECT pada: film, jadwal_tayang, kursi, studio (data referensi)
+-- - TIDAK ada hak DELETE maupun akses ke tabel master film/studio
+-- ============================================================
+CREATE ROLE kasir_bioskop WITH LOGIN PASSWORD 'Kasir#2026';
+
+GRANT SELECT, INSERT, UPDATE
+    ON pemesanan, detail_pemesanan, pembayaran, kursi_jadwal
+    TO kasir_bioskop;
+
+GRANT SELECT, INSERT
+    ON pelanggan
+    TO kasir_bioskop;
+
+GRANT SELECT
+    ON film, jadwal_tayang, kursi, studio
+    TO kasir_bioskop;
+
+
+-- ============================================================
+-- R3 — CUSTOMER SERVICE
+-- - Hanya SELECT (read-only) pada: pemesanan, detail_pemesanan,
+--   pelanggan, pembayaran — untuk keperluan penanganan komplain
+--   dan verifikasi data pemesanan
+-- - TIDAK ada hak INSERT, UPDATE, maupun DELETE pada tabel manapun
+-- ============================================================
+CREATE ROLE cs_bioskop WITH LOGIN PASSWORD 'CSBioskop#2026';
+
+GRANT SELECT
+    ON pemesanan, detail_pemesanan, pelanggan, pembayaran
+    TO cs_bioskop;
+```
 
 ### 3.4 Transaksi Database
 - **TR1 (wajib)**: Pemesanan + Pembayaran dalam satu transaksi — melibatkan INSERT ke `pemesanan`, `detail_pemesanan`, `pembayaran`, serta trigger T1/T3/T4. Struktur skema di atas sudah mendukung skenario ini sepenuhnya.
