@@ -35,32 +35,28 @@
 
 ---
 ```
--- 1. film
 CREATE TABLE film (
     id_film         INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     judul_film      VARCHAR(150) NOT NULL,
-    genre           VARCHAR(20),
-    durasi_menit    INTEGER,
-    sutradara       VARCHAR(30),
-    deskripsi       TEXT
+    genre           VARCHAR(20) NOT NULL,
+    durasi_menit    INTEGER NOT NULL,
+    sutradara       VARCHAR(30) NOT NULL,
+    deskripsi       TEXT NOT NULL
 );
 
 -- 2. studio
 CREATE TABLE studio (
     id_studio       INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nama_studio     VARCHAR(50) NOT NULL,
-    tipe_studio     VARCHAR(20) NOT NULL
-                    CHECK (tipe_studio IN ('reguler', 'vip', '3d')),
+    tipe_studio     VARCHAR(20) NOT NULL CHECK (tipe_studio IN ('reguler', 'vip', '3d')),
     kapasitas       INTEGER NOT NULL
 );
 
--- 3. kursi (master kursi fisik milik suatu studio)
+-- 3. kursi
 CREATE TABLE kursi (
     id_kursi        INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_studio       INTEGER NOT NULL REFERENCES studio(id_studio),
     nomor_kursi     VARCHAR(5) NOT NULL,
-    kategori_kursi  VARCHAR(20) NOT NULL
-                    CHECK (kategori_kursi IN ('reguler', 'vip')),
     CONSTRAINT uq_kursi_studio_nomor UNIQUE (id_studio, nomor_kursi)
 );
 
@@ -74,13 +70,12 @@ CREATE TABLE jadwal_tayang (
     harga_tiket     NUMERIC(10,2) NOT NULL
 );
 
--- 5. kursi_jadwal (status kursi per jadwal tayang — target Trigger T1, T2, T3)
+-- 5. kursi_jadwal
 CREATE TABLE kursi_jadwal (
     id_kursi_jadwal INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_jadwal       INTEGER NOT NULL REFERENCES jadwal_tayang(id_jadwal),
     id_kursi        INTEGER NOT NULL REFERENCES kursi(id_kursi),
-    status_kursi    VARCHAR(20) NOT NULL DEFAULT 'available'
-                    CHECK (status_kursi IN ('available', 'booked', 'locked')),
+    status_kursi    VARCHAR(20) NOT NULL DEFAULT 'available' CHECK (status_kursi IN ('available', 'booked', 'locked')),
     CONSTRAINT uq_kursijadwal_jadwal_kursi UNIQUE (id_jadwal, id_kursi)
 );
 
@@ -88,8 +83,8 @@ CREATE TABLE kursi_jadwal (
 CREATE TABLE pelanggan (
     id_pelanggan    INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nama_pelanggan  VARCHAR(50) NOT NULL,
-    email           VARCHAR(30) NOT NULL,
-    no_hp           VARCHAR(20)
+    email           VARCHAR(30) NOT NULL UNIQUE,
+    no_hp           VARCHAR(20) NOT NULL
 );
 
 -- 7. pemesanan
@@ -98,12 +93,11 @@ CREATE TABLE pemesanan (
     id_pelanggan     INTEGER NOT NULL REFERENCES pelanggan(id_pelanggan),
     id_jadwal        INTEGER NOT NULL REFERENCES jadwal_tayang(id_jadwal),
     tanggal_pesan    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    status_pemesanan VARCHAR(20) NOT NULL DEFAULT 'pending'
-                     CHECK (status_pemesanan IN ('pending', 'confirmed', 'cancelled')),
+    status_pemesanan VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status_pemesanan IN ('pending', 'confirmed', 'cancelled')),
     total_harga      NUMERIC(10,2) NOT NULL DEFAULT 0
 );
 
--- 8. detail_pemesanan (rincian kursi yang dipesan; mendukung pemesanan multi-kursi)
+-- 8. detail_pemesanan
 CREATE TABLE detail_pemesanan (
     id_detail        INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_pemesanan     INTEGER NOT NULL REFERENCES pemesanan(id_pemesanan),
@@ -115,12 +109,10 @@ CREATE TABLE detail_pemesanan (
 CREATE TABLE pembayaran (
     id_pembayaran     INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_pemesanan      INTEGER NOT NULL UNIQUE REFERENCES pemesanan(id_pemesanan),
-    metode_pembayaran VARCHAR(30) NOT NULL
-                      CHECK (metode_pembayaran IN ('cash', 'debit', 'credit', 'e-wallet')),
+    metode_pembayaran VARCHAR(30) NOT NULL CHECK (metode_pembayaran IN ('cash', 'debit', 'credit', 'e-wallet')),
     jumlah_bayar      NUMERIC(10,2) NOT NULL,
-    status_pembayaran VARCHAR(30) NOT NULL DEFAULT 'pending'
-                      CHECK (status_pembayaran IN ('pending', 'success', 'failed')),
-    tanggal_bayar     DATETIME NOT NULL
+    status_pembayaran VARCHAR(30) NOT NULL DEFAULT 'pending' CHECK (status_pembayaran IN ('pending', 'success', 'failed')),
+    tanggal_bayar     TIMESTAMP NULL
 );
 ```
 ## 2. Physical Data Model (PDM)
