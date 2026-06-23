@@ -200,11 +200,13 @@ CREATE TABLE pembayaran (
 
 ---
 ### CDM
-<img width="813" height="546" alt="image" src="https://github.com/user-attachments/assets/8bf9a2a7-ed25-4a21-9996-1fcdb7e05098" />
+<img width="921" height="743" alt="Bioskop_CDM-2026-06-23_19-01" src="https://github.com/user-attachments/assets/9a542f01-281a-47fe-a162-7067c852ccd1" />
+
 
 
 ### PDM
-<img width="792" height="546" alt="image" src="https://github.com/user-attachments/assets/cc636667-d172-49ac-a091-419b4673a5ed" />
+<img width="921" height="754" alt="Bioskop_CDM_Physical_Export_3-2026-06-23_19-04" src="https://github.com/user-attachments/assets/9976193c-d1ef-4a1e-81df-5184ad69b62a" />
+
 
 
 ## 3. Pemetaan Komponen Penilaian
