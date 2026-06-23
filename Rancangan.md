@@ -356,6 +356,8 @@ EXECUTE FUNCTION fn_buka_kursi_jadwal();
 | I6 | jadwal_tayang | (id_studio, tanggal_tayang) | Composite |
 
 ```
+
+```
 -- I1 — Single-column index untuk pencarian film berdasarkan judul
 CREATE INDEX idx_film_judul ON film (judul_film);
 
