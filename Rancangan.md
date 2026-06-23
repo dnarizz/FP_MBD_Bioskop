@@ -93,7 +93,7 @@ CREATE TABLE pemesanan (
     id_pelanggan     INTEGER NOT NULL REFERENCES pelanggan(id_pelanggan),
     id_jadwal        INTEGER NOT NULL REFERENCES jadwal_tayang(id_jadwal),
     tanggal_pesan    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    status_pemesanan VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status_pemesanan IN ('pending', 'confirmed', 'cancelled')),
+    status_pemesanan VARCHAR(20) NOT NULL CHECK (status_pemesanan IN ('confirmed', 'cancelled')),
     total_harga      NUMERIC(10,2) NOT NULL DEFAULT 0
 );
 
@@ -110,7 +110,7 @@ CREATE TABLE pembayaran (
     id_pembayaran     INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_pemesanan      INTEGER NOT NULL UNIQUE REFERENCES pemesanan(id_pemesanan),
     metode_pembayaran VARCHAR(30) NOT NULL CHECK (metode_pembayaran IN ('cash', 'debit', 'credit', 'e-wallet')),
-    status_pembayaran VARCHAR(30) NOT NULL DEFAULT 'pending' CHECK (status_pembayaran IN ('success', 'failed')),
+    status_pembayaran VARCHAR(30) NOT NULL CHECK (status_pembayaran IN ('success', 'failed')),
     tanggal_bayar     TIMESTAMP NULL
 );
 ```
@@ -121,10 +121,10 @@ CREATE TABLE pembayaran (
 |---|---|---|
 | id_film | INT | PK, AUTO_INCREMENT |
 | judul_film | VARCHAR(150) | NOT NULL  |
-| genre | VARCHAR(20) | |
-| durasi_menit | INT | |
-| sutradara | VARCHAR(30) | |
-| deskripsi | TEXT | |
+| genre | VARCHAR(20) | NOT NULL|
+| durasi_menit | INT | NOT NULL |
+| sutradara | VARCHAR(30) | NOT NULL |
+| deskripsi | TEXT | NOT NULL |
 
 ### 2.2 Tabel `studio`
 | Kolom | Tipe Data | Constraint |
@@ -176,7 +176,7 @@ CREATE TABLE pembayaran (
 | id_pelanggan | INT | FK → pelanggan.id_pelanggan, NOT NULL |
 | id_jadwal | INT | FK → jadwal_tayang.id_jadwal, NOT NULL |
 | tanggal_pesan | DATETIME | DEFAULT CURRENT_TIMESTAMP |
-| status_pemesanan | ENUM('pending','confirmed','cancelled') | DEFAULT 'pending' |
+| status_pemesanan | ENUM('confirmed','cancelled') | NOT NULL |
 | total_harga | DECIMAL(10,2) | DEFAULT 0 |
 
 ### 2.8 Tabel `detail_pemesanan`
