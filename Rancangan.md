@@ -420,6 +420,8 @@ GRANT SELECT
     ON film, jadwal_tayang, kursi, studio
     TO kasir_bioskop;
 
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO kasir_bioskop;
+
 
 -- ============================================================
 -- R3 — CUSTOMER SERVICE
@@ -433,6 +435,8 @@ CREATE ROLE cs_bioskop WITH LOGIN PASSWORD 'CSBioskop#2026';
 GRANT SELECT
     ON pemesanan, detail_pemesanan, pelanggan, pembayaran
     TO cs_bioskop;
+
+
 ```
 
 ### 3.4 Transaksi Database
