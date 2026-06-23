@@ -166,7 +166,7 @@ CREATE TABLE pembayaran (
 |---|---|---|
 | id_pelanggan | INT | PK, AUTO_INCREMENT |
 | nama_pelanggan | VARCHAR(50) | NOT NULL |
-| email | VARCHAR(30) | UNIQUE, NOT NULL |
+| email | VARCHAR(100) | UNIQUE, NOT NULL |
 | no_hp | VARCHAR(20) | |
 
 ### 2.7 Tabel `pemesanan`
