@@ -167,7 +167,7 @@ CREATE TABLE pembayaran (
 | id_pelanggan | INT | PK, AUTO_INCREMENT |
 | nama_pelanggan | VARCHAR(50) | NOT NULL |
 | email | VARCHAR(100) | UNIQUE, NOT NULL |
-| no_hp | VARCHAR(20) | |
+| no_hp | VARCHAR(20) | NOT NULL |
 
 ### 2.7 Tabel `pemesanan`
 | Kolom | Tipe Data | Constraint |
@@ -217,10 +217,8 @@ CREATE TABLE pembayaran (
 | T2 | Kembalikan status kursi → available | `pemesanan` / `pembayaran` (AFTER UPDATE, saat status = 'cancelled'/'failed') | UPDATE `kursi_jadwal.status_kursi` = 'available' |
 | T3 | Validasi kursi belum terisi | `detail_pemesanan` (BEFORE INSERT) | Cek `kursi_jadwal.status_kursi`, tolak (RAISE ERROR) jika sudah 'booked' |
 | T4 | Hitung total harga otomatis | `detail_pemesanan` (AFTER INSERT) | UPDATE `pemesanan.total_harga` = SUM(harga) dari seluruh detail terkait |
-| T5 | Otomatisasi data dari kursi dan jadwal tayang | `kursi_jadwal` (AFTER INSERT) | INSERT `jadwal_tayang` | 
-T5 — Otomatisasi data kursi_jadwal setalah menambahkan data jadwal_tayang baru
--- AFTER INSERT jadwal_tayang
--- Aktif ketika INSERT jadwal_tayang
+| T5 | Otomatisasi data dari kursi dan jadwal tayang | `jadwal_tayang` (AFTER INSERT) | INSERT `kursi_jadwal` | 
+
 
 
 ```
