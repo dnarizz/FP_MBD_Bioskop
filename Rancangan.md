@@ -75,7 +75,7 @@ CREATE TABLE kursi_jadwal (
     id_kursi_jadwal INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_jadwal       INTEGER NOT NULL REFERENCES jadwal_tayang(id_jadwal),
     id_kursi        INTEGER NOT NULL REFERENCES kursi(id_kursi),
-    status_kursi    VARCHAR(20) NOT NULL DEFAULT 'available' CHECK (status_kursi IN ('available', 'booked', 'locked')),
+    status_kursi    VARCHAR(20) NOT NULL DEFAULT 'available' CHECK (status_kursi IN ('available', 'booked')),
     CONSTRAINT uq_kursijadwal_jadwal_kursi UNIQUE (id_jadwal, id_kursi)
 );
 
