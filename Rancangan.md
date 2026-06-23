@@ -322,7 +322,12 @@ AFTER UPDATE OF status_pemesanan ON pemesanan
 FOR EACH ROW
 EXECUTE FUNCTION fn_kembalikan_status_kursi_dari_pemesanan();
 
-``
+
+-- ============================================================
+-- T5 — Otomatisasi data kursi_jadwal setalah menambahkan data jadwal_tayang baru
+-- AFTER INSERT jadwal_tayang
+-- Aktif ketika INSERT jadwal_tayang
+-- ============================================================
 CREATE OR REPLACE FUNCTION fn_buka_kursi_jadwal()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -339,13 +344,9 @@ AFTER INSERT ON jadwal_tayang
 FOR EACH ROW
 EXECUTE FUNCTION fn_buka_kursi_jadwal();
 
+```
 
 
--- ============================================================
--- T5 — Otomatisasi data kursi_jadwal setalah menambahkan data jadwal_tayang baru
--- AFTER INSERT jadwal_tayang
--- Aktif ketika INSERT jadwal_tayang
--- ============================================================
 
 ### 3.2 Indexing (I1, I2, I3, I6)
 | Kode | Tabel | Kolom | Jenis |
@@ -355,7 +356,6 @@ EXECUTE FUNCTION fn_buka_kursi_jadwal();
 | I3 | kursi_jadwal | (id_jadwal, id_kursi) | Composite |
 | I6 | jadwal_tayang | (id_studio, tanggal_tayang) | Composite |
 
-```
 
 ```
 -- I1 — Single-column index untuk pencarian film berdasarkan judul
