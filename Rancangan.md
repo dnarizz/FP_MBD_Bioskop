@@ -219,12 +219,12 @@ CREATE TABLE pembayaran (
 | T3 | Validasi kursi belum terisi | `detail_pemesanan` (BEFORE INSERT) | Cek `kursi_jadwal.status_kursi`, tolak (RAISE ERROR) jika sudah 'booked' |
 | T4 | Hitung total harga otomatis | `detail_pemesanan` (AFTER INSERT) | UPDATE `pemesanan.total_harga` = SUM(harga) dari seluruh detail terkait |
 
-
+```
 -- ============================================================
 -- T3 — Validasi kursi belum terisi
 -- `detail_pemesanan` (BEFORE INSERT)
 -- ============================================================
-```
+
 CREATE OR REPLACE FUNCTION fn_validasi_kursi_tersedia()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -322,8 +322,30 @@ AFTER UPDATE OF status_pemesanan ON pemesanan
 FOR EACH ROW
 EXECUTE FUNCTION fn_kembalikan_status_kursi_dari_pemesanan();
 
+``
+CREATE OR REPLACE FUNCTION fn_buka_kursi_jadwal()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO kursi_jadwal (id_jadwal, id_kursi, status_kursi)
+    SELECT NEW.id_jadwal, id_kursi, 'available'
+    FROM kursi
+    WHERE id_studio = NEW.id_studio;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-```
+CREATE TRIGGER trg_buka_kursi_otomatis
+AFTER INSERT ON jadwal_tayang
+FOR EACH ROW
+EXECUTE FUNCTION fn_buka_kursi_jadwal();
+
+
+
+-- ============================================================
+-- T5 — Otomatisasi data kursi_jadwal setalah menambahkan data jadwal_tayang baru
+-- AFTER INSERT jadwal_tayang
+-- Aktif ketika INSERT jadwal_tayang
+-- ============================================================
 
 ### 3.2 Indexing (I1, I2, I3, I6)
 | Kode | Tabel | Kolom | Jenis |
