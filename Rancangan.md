@@ -101,7 +101,7 @@ CREATE TABLE pemesanan (
 CREATE TABLE detail_pemesanan (
     id_detail        INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_pemesanan     INTEGER NOT NULL REFERENCES pemesanan(id_pemesanan),
-    id_kursi_jadwal  INTEGER NOT NULL UNIQUE REFERENCES kursi_jadwal(id_kursi_jadwal),
+    id_kursi_jadwal  INTEGER NOT NULL REFERENCES kursi_jadwal(id_kursi_jadwal),
     harga            NUMERIC(10,2) NOT NULL
 );
 
