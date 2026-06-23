@@ -83,7 +83,7 @@ CREATE TABLE kursi_jadwal (
 CREATE TABLE pelanggan (
     id_pelanggan    INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nama_pelanggan  VARCHAR(50) NOT NULL,
-    email           VARCHAR(100) NOT NULL UNIQUE,
+    email           VARCHAR(100),
     no_hp           VARCHAR(20) NOT NULL
 );
 
@@ -166,7 +166,7 @@ CREATE TABLE pembayaran (
 |---|---|---|
 | id_pelanggan | INT | PK, AUTO_INCREMENT |
 | nama_pelanggan | VARCHAR(50) | NOT NULL |
-| email | VARCHAR(100) | UNIQUE, NOT NULL |
+| email | VARCHAR(100) | NULL |
 | no_hp | VARCHAR(20) | NOT NULL |
 
 ### 2.7 Tabel `pemesanan`
