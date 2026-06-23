@@ -110,7 +110,7 @@ CREATE TABLE pembayaran (
     id_pembayaran     INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_pemesanan      INTEGER NOT NULL UNIQUE REFERENCES pemesanan(id_pemesanan),
     metode_pembayaran VARCHAR(30) NOT NULL CHECK (metode_pembayaran IN ('cash', 'debit', 'credit', 'e-wallet')),
-    status_pembayaran VARCHAR(30) NOT NULL DEFAULT 'pending' CHECK (status_pembayaran IN ('pending', 'success', 'failed')),
+    status_pembayaran VARCHAR(30) NOT NULL DEFAULT 'pending' CHECK (status_pembayaran IN ('success', 'failed')),
     tanggal_bayar     TIMESTAMP NULL
 );
 ```
@@ -158,7 +158,7 @@ CREATE TABLE pembayaran (
 | id_kursi_jadwal | INT | PK, AUTO_INCREMENT |
 | id_jadwal | INT | FK → jadwal_tayang.id_jadwal, NOT NULL |
 | id_kursi | INT | FK → kursi.id_kursi, NOT NULL |
-| status_kursi | ENUM('available','booked','locked') | DEFAULT 'available' |
+| status_kursi | ENUM('available','booked') | DEFAULT 'available' |
 | | | UNIQUE(id_jadwal, id_kursi) |
 
 ### 2.6 Tabel `pelanggan`
@@ -185,7 +185,7 @@ CREATE TABLE pembayaran (
 | id_detail | INT | PK, AUTO_INCREMENT |
 | id_pemesanan | INT | FK → pemesanan.id_pemesanan, NOT NULL |
 | id_kursi_jadwal | INT | FK → kursi_jadwal.id_kursi_jadwal, NOT NULL |
-| harga | DECIMAL(10,2) | NOT NULL — *snapshot harga saat pemesanan dibuat* |
+| harga | DECIMAL(10,2) | NOT NULL  |
 
 
 ### 2.9 Tabel `pembayaran`
@@ -194,7 +194,7 @@ CREATE TABLE pembayaran (
 | id_pembayaran | INT | PK, AUTO_INCREMENT |
 | id_pemesanan | INT | FK → pemesanan.id_pemesanan, NOT NULL, UNIQUE |
 | metode_pembayaran | ENUM('cash','debit','credit','e-wallet') | NOT NULL |
-| status_pembayaran | ENUM('pending','success','failed') | DEFAULT 'pending' |
+| status_pembayaran | ENUM('success','failed') |
 | tanggal_bayar | DATETIME | |
 
 ---
