@@ -83,7 +83,7 @@ CREATE TABLE kursi_jadwal (
 CREATE TABLE pelanggan (
     id_pelanggan    INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nama_pelanggan  VARCHAR(50) NOT NULL,
-    email           VARCHAR(30) NOT NULL UNIQUE,
+    email           VARCHAR(100) NOT NULL UNIQUE,
     no_hp           VARCHAR(20) NOT NULL
 );
 
@@ -110,7 +110,6 @@ CREATE TABLE pembayaran (
     id_pembayaran     INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_pemesanan      INTEGER NOT NULL UNIQUE REFERENCES pemesanan(id_pemesanan),
     metode_pembayaran VARCHAR(30) NOT NULL CHECK (metode_pembayaran IN ('cash', 'debit', 'credit', 'e-wallet')),
-    jumlah_bayar      NUMERIC(10,2) NOT NULL,
     status_pembayaran VARCHAR(30) NOT NULL DEFAULT 'pending' CHECK (status_pembayaran IN ('pending', 'success', 'failed')),
     tanggal_bayar     TIMESTAMP NULL
 );
@@ -121,11 +120,10 @@ CREATE TABLE pembayaran (
 | Kolom | Tipe Data | Constraint |
 |---|---|---|
 | id_film | INT | PK, AUTO_INCREMENT |
-| judul_film | VARCHAR(150) | NOT NULL — **terindeks (I1)** |
-| genre | VARCHAR(50) | |
+| judul_film | VARCHAR(150) | NOT NULL  |
+| genre | VARCHAR(20) | |
 | durasi_menit | INT | |
-| rating_usia | VARCHAR(10) | mis. SU, 13+, 17+, 21+ |
-| sutradara | VARCHAR(100) | |
+| sutradara | VARCHAR(30) | |
 | deskripsi | TEXT | |
 
 ### 2.2 Tabel `studio`
@@ -133,7 +131,7 @@ CREATE TABLE pembayaran (
 |---|---|---|
 | id_studio | INT | PK, AUTO_INCREMENT |
 | nama_studio | VARCHAR(50) | NOT NULL |
-| tipe_studio | ENUM('reguler','vip','3d') | NOT NULL |
+| tipe_studio | VARCHAR(20)('reguler','vip','3d') | NOT NULL |
 | kapasitas | INT | NOT NULL |
 
 ### 2.3 Tabel `kursi`
@@ -142,7 +140,6 @@ CREATE TABLE pembayaran (
 | id_kursi | INT | PK, AUTO_INCREMENT |
 | id_studio | INT | FK → studio.id_studio, NOT NULL |
 | nomor_kursi | VARCHAR(5) | NOT NULL, mis. A1, B5 |
-| kategori_kursi | ENUM('reguler','vip') | NOT NULL |
 | | | UNIQUE(id_studio, nomor_kursi) |
 
 ### 2.4 Tabel `jadwal_tayang`
@@ -151,12 +148,11 @@ CREATE TABLE pembayaran (
 | id_jadwal | INT | PK, AUTO_INCREMENT |
 | id_film | INT | FK → film.id_film, NOT NULL |
 | id_studio | INT | FK → studio.id_studio, NOT NULL |
-| tanggal_tayang | DATE | NOT NULL — **terindeks (I2)** |
+| tanggal_tayang | DATE | NOT NULL |
 | jam_tayang | TIME | NOT NULL |
 | harga_tiket | DECIMAL(10,2) | NOT NULL |
-| | | **Composite Index I6: (id_studio, tanggal_tayang)** |
 
-### 2.5 Tabel `kursi_jadwal`  *(entitas kunci untuk Trigger T1, T2, T3)*
+### 2.5 Tabel `kursi_jadwal`  
 | Kolom | Tipe Data | Constraint |
 |---|---|---|
 | id_kursi_jadwal | INT | PK, AUTO_INCREMENT |
@@ -164,14 +160,13 @@ CREATE TABLE pembayaran (
 | id_kursi | INT | FK → kursi.id_kursi, NOT NULL |
 | status_kursi | ENUM('available','booked','locked') | DEFAULT 'available' |
 | | | UNIQUE(id_jadwal, id_kursi) |
-| | | **Composite Index I3: (id_jadwal, id_kursi)** |
 
 ### 2.6 Tabel `pelanggan`
 | Kolom | Tipe Data | Constraint |
 |---|---|---|
 | id_pelanggan | INT | PK, AUTO_INCREMENT |
-| nama_pelanggan | VARCHAR(100) | NOT NULL |
-| email | VARCHAR(100) | UNIQUE, NOT NULL |
+| nama_pelanggan | VARCHAR(50) | NOT NULL |
+| email | VARCHAR(30) | UNIQUE, NOT NULL |
 | no_hp | VARCHAR(20) | |
 
 ### 2.7 Tabel `pemesanan`
@@ -182,17 +177,16 @@ CREATE TABLE pembayaran (
 | id_jadwal | INT | FK → jadwal_tayang.id_jadwal, NOT NULL |
 | tanggal_pesan | DATETIME | DEFAULT CURRENT_TIMESTAMP |
 | status_pemesanan | ENUM('pending','confirmed','cancelled') | DEFAULT 'pending' |
-| total_harga | DECIMAL(10,2) | DEFAULT 0 — **diisi otomatis oleh Trigger T4** |
+| total_harga | DECIMAL(10,2) | DEFAULT 0 |
 
 ### 2.8 Tabel `detail_pemesanan`
 | Kolom | Tipe Data | Constraint |
 |---|---|---|
 | id_detail | INT | PK, AUTO_INCREMENT |
 | id_pemesanan | INT | FK → pemesanan.id_pemesanan, NOT NULL |
-| id_kursi_jadwal | INT | FK → kursi_jadwal.id_kursi_jadwal, NOT NULL, **UNIQUE** |
+| id_kursi_jadwal | INT | FK → kursi_jadwal.id_kursi_jadwal, NOT NULL |
 | harga | DECIMAL(10,2) | NOT NULL — *snapshot harga saat pemesanan dibuat* |
 
-> Catatan: kolom `harga` sengaja disalin dari `jadwal_tayang.harga_tiket` pada saat insert, bukan diambil ulang via JOIN setiap saat. Ini untuk menjaga histori harga tetap akurat meskipun `harga_tiket` di jadwal berubah di kemudian hari.
 
 ### 2.9 Tabel `pembayaran`
 | Kolom | Tipe Data | Constraint |
@@ -223,14 +217,17 @@ CREATE TABLE pembayaran (
 | T3 | Validasi kursi belum terisi | `detail_pemesanan` (BEFORE INSERT) | Cek `kursi_jadwal.status_kursi`, tolak (RAISE ERROR) jika sudah 'booked' |
 | T4 | Hitung total harga otomatis | `detail_pemesanan` (AFTER INSERT) | UPDATE `pemesanan.total_harga` = SUM(harga) dari seluruh detail terkait |
 
+
+-- ============================================================
+-- T3 — Validasi kursi belum terisi
+-- `detail_pemesanan` (BEFORE INSERT)
+-- ============================================================
 ```
 CREATE OR REPLACE FUNCTION fn_validasi_kursi_tersedia()
 RETURNS TRIGGER AS $$
 DECLARE
     v_status kursi_jadwal.status_kursi%TYPE;
 BEGIN
-    -- FOR UPDATE mengunci baris agar tidak terjadi race condition
-    -- ketika dua transaksi memesan kursi yang sama secara bersamaan
     SELECT status_kursi INTO v_status
     FROM kursi_jadwal
     WHERE id_kursi_jadwal = NEW.id_kursi_jadwal
@@ -241,9 +238,7 @@ BEGIN
     END IF;
 
     IF v_status <> 'available' THEN
-        RAISE EXCEPTION
-            'Kursi tidak tersedia (status saat ini: %). Tidak dapat memesan kursi yang sama.',
-            v_status;
+        RAISE EXCEPTION 'Kursi tidak tersedia (status: %). Tidak dapat memesan kursi yang sama.', v_status;
     END IF;
 
     RETURN NEW;
@@ -266,7 +261,6 @@ BEGIN
     UPDATE kursi_jadwal
     SET status_kursi = 'booked'
     WHERE id_kursi_jadwal = NEW.id_kursi_jadwal;
-
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -291,7 +285,6 @@ BEGIN
         WHERE id_pemesanan = NEW.id_pemesanan
     )
     WHERE id_pemesanan = NEW.id_pemesanan;
-
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -302,8 +295,9 @@ FOR EACH ROW
 EXECUTE FUNCTION fn_hitung_total_harga();
 
 
+
 -- ============================================================
--- T2a — Kembalikan status kursi menjadi 'available'
+-- T2 — Kembalikan status kursi menjadi 'available'
 -- AFTER UPDATE OF status_pemesanan ON pemesanan
 -- Aktif ketika status_pemesanan berubah MENJADI 'cancelled'
 -- ============================================================
@@ -317,48 +311,16 @@ BEGIN
         WHERE dp.id_pemesanan = NEW.id_pemesanan
           AND kj.id_kursi_jadwal = dp.id_kursi_jadwal;
     END IF;
-
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_t2a_kembalikan_status_kursi
+CREATE TRIGGER trg_t2_kembalikan_status_kursi
 AFTER UPDATE OF status_pemesanan ON pemesanan
 FOR EACH ROW
 EXECUTE FUNCTION fn_kembalikan_status_kursi_dari_pemesanan();
 
 
--- ============================================================
--- T2b — Kembalikan status kursi menjadi 'available'
--- AFTER UPDATE OF status_pembayaran ON pembayaran
--- Aktif ketika status_pembayaran berubah MENJADI 'failed'
--- Turut membatalkan pemesanan terkait, yang secara otomatis
--- akan ikut memicu logika T2a melalui cascading update
--- ============================================================
-CREATE OR REPLACE FUNCTION fn_kembalikan_status_kursi_dari_pembayaran()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.status_pembayaran = 'failed' AND OLD.status_pembayaran IS DISTINCT FROM 'failed' THEN
-        UPDATE kursi_jadwal kj
-        SET status_kursi = 'available'
-        FROM detail_pemesanan dp
-        WHERE dp.id_pemesanan = NEW.id_pemesanan
-          AND kj.id_kursi_jadwal = dp.id_kursi_jadwal;
-
-        UPDATE pemesanan
-        SET status_pemesanan = 'cancelled'
-        WHERE id_pemesanan = NEW.id_pemesanan
-          AND status_pemesanan <> 'cancelled';
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_t2b_kembalikan_status_kursi
-AFTER UPDATE OF status_pembayaran ON pembayaran
-FOR EACH ROW
-EXECUTE FUNCTION fn_kembalikan_status_kursi_dari_pembayaran();
 ```
 
 ### 3.2 Indexing (I1, I2, I3, I6)
