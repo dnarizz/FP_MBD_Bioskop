@@ -194,7 +194,6 @@ CREATE TABLE pembayaran (
 | id_pembayaran | INT | PK, AUTO_INCREMENT |
 | id_pemesanan | INT | FK → pemesanan.id_pemesanan, NOT NULL, UNIQUE |
 | metode_pembayaran | ENUM('cash','debit','credit','e-wallet') | NOT NULL |
-| jumlah_bayar | DECIMAL(10,2) | NOT NULL |
 | status_pembayaran | ENUM('pending','success','failed') | DEFAULT 'pending' |
 | tanggal_bayar | DATETIME | |
 
